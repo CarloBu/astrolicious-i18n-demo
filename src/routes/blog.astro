@@ -1,0 +1,54 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import { getLocale, getLocalePath, t } from 'i18n:astro';
+import Layout from '~/layouts/Layout.astro';
+
+const title = t('blog');
+const posts = await getCollection(
+	'posts',
+	({ slug }) => slug.split('/')[0] === getLocale()
+);
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	<ul>
+		{
+			posts.map(async (post) => {
+				const authorData = await getEntry('author', post.data.author.id);
+				const tagsData = await Promise.all(
+					post.data.tags.map((tag) => getEntry('tags', tag.id))
+				);
+				return (
+					<li>
+						<a
+							href={getLocalePath('/blog/[slug]', {
+								slug: post.slug.split('/')[1],
+							})}
+							class='hover:underline'>
+							{post.data.title}
+						</a>
+						<br />
+						{t('author')}:
+						<a
+							href={getLocalePath('/authors/[author]', {
+								author: authorData.id,
+							})}>
+							{authorData.data.name}
+						</a>
+						<br />
+						{t('tags')}:
+						{tagsData.map((tagDetail) => (
+							<a
+								href={getLocalePath('/tags/[tag]', {
+									tag: tagDetail.id.split('/')[1],
+								})}>
+								{tagDetail.data.title}
+							</a>
+						))}
+					</li>
+				);
+			})
+		}
+	</ul>
+</Layout>

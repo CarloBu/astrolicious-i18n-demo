@@ -1,0 +1,14 @@
+{
+	"home": "Home",
+	"hero": "Welcome to I18n for Astro Demo",
+	"footer": "Made with ❤️ by astrolicious",
+	"about": "About",
+	"aboutMessage": "This is a simple page",
+	"opensource": "Did you know that this page is available on GitHub? No? Well, now you know!",
+	"opensourceCTA": "Check it out!",
+	"blog": "Blog",
+	"tags": "Tags",
+	"tag": "Tag",
+	"authors": "Authors",
+	"author": "Author"
+}

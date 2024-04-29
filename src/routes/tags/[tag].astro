@@ -1,0 +1,143 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import {
+	getDefaultLocalePlaceholder,
+	getLocalePlaceholder,
+	setDynamicParams,
+	t,
+} from 'i18n:astro';
+import sitemap from 'i18n:astro/sitemap';
+import {
+	collectionFilters,
+	handleI18nSlug,
+} from '@astrolicious/i18n/content-collections';
+import type { GetStaticPaths } from 'astro';
+import Layout from '~/layouts/Layout.astro';
+import { getLocalePath } from 'i18n:astro';
+
+export const getStaticPaths = (async () => {
+	const locale = getLocalePlaceholder();
+	const defaultLocale = getDefaultLocalePlaceholder();
+
+	const tags = await getCollection('tags', (tag) =>
+		collectionFilters.byLocale(tag, { locale })
+	);
+
+	return await Promise.all(
+		tags.map(async (tag) => {
+			const equivalentTags = await getCollection('tags', (t) =>
+				collectionFilters.matchingEntries(t, {
+					currentEntry: tag,
+					key: 'defaultLocaleVersion',
+					locale,
+					defaultLocale,
+				})
+			);
+
+			const dynamicParams = equivalentTags.map((entry) => {
+				const { locale, slug } = handleI18nSlug(entry.id);
+				return {
+					locale,
+					params: {
+						tag: slug,
+					},
+				};
+			});
+
+			sitemap({
+				dynamicParams,
+			});
+
+			return {
+				params: {
+					tag: handleI18nSlug(tag.id).slug,
+				},
+				props: {
+					tag,
+					tags,
+					dynamicParams,
+				},
+			};
+		})
+	);
+}) satisfies GetStaticPaths;
+
+const { tag, tags, dynamicParams } = Astro.props;
+setDynamicParams(dynamicParams);
+
+const currentTag = tag.id;
+console.log(currentTag);
+
+const filteredPosts = await getCollection('posts', ({ data }) =>
+	data.tags.some((tagId) => tagId.id === currentTag)
+);
+
+const title = `${t('tag')} - ${tag.data.title}`;
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	<ul>
+		{
+			tags.map(async (tag) => {
+				const tagPosts = await getCollection('posts', ({ data }) =>
+					data.tags.some((tagId) => tagId.id === tag.id)
+				);
+				return (
+					<li>
+						<a
+							href={getLocalePath('/tags/[tag]', {
+								tag: tag.id.split('/')[1],
+							})}
+							class={
+								currentTag === tag.id
+									? 'hover:underline text-red-500 underline dark:text-red-500'
+									: 'hover:underline'
+							}>
+							{tag.data.title} ({tagPosts.length})
+						</a>
+					</li>
+				);
+			})
+		}
+		<ul>
+			{
+				filteredPosts.map(async (post) => {
+					const authorDetails = await getEntry('author', post.data.author.id);
+					const tagsDetails = await Promise.all(
+						post.data.tags.map((tag) => getEntry('tags', tag.id))
+					);
+					return (
+						<li>
+							<a
+								href={getLocalePath('/blog/[slug]', {
+									slug: post.slug.split('/')[1],
+								})}
+								class='hover:underline'>
+								{post.data.title}
+							</a>
+							<br />
+							{t('author')}:
+							<a
+								href={getLocalePath('/authors/[author]', {
+									author: authorDetails.id,
+								})}>
+								{authorDetails.data.name}
+							</a>
+							<br />
+							{t('tags')}:
+							{tagsDetails.map((tagDetail) => (
+								<a
+									href={getLocalePath('/tags/[tag]', {
+										tag: tagDetail.id.split('/')[1],
+									})}>
+									{tagDetail.data.title}
+								</a>
+							))}
+						</li>
+					);
+				})
+			}
+		</ul>
+	</ul>
+</Layout>

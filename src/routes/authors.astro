@@ -1,0 +1,38 @@
+---
+import { getCollection } from 'astro:content';
+import { getLocale, getLocalePath, t } from 'i18n:astro';
+import Layout from '~/layouts/Layout.astro';
+
+const title = t('authors');
+
+const posts = await getCollection(
+	'posts',
+	({ slug }) => slug.split('/')[0] === getLocale()
+);
+
+const authors = await getCollection('author', ({ id }) => id);
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	<ul>
+		{
+			authors.map(async (author) => {
+				const authorPosts = posts.filter(
+					({ data }) => data.author.id === author.id
+				);
+				return (
+					<li>
+						<a
+							href={getLocalePath('/authors/[author]', {
+								author: author.id,
+							})}
+							class='hover:underline'>
+							{author.data.name} ({authorPosts.length})
+						</a>
+					</li>
+				);
+			})
+		}
+	</ul>
+</Layout>

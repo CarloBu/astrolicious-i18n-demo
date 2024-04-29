@@ -1,0 +1,36 @@
+---
+import { getCollection } from 'astro:content';
+import { getLocale, getLocalePath, t } from 'i18n:astro';
+import Layout from '~/layouts/Layout.astro';
+
+const title = t('tags');
+
+const tags = await getCollection(
+	'tags',
+	({ id }) => id.split('/')[0] === getLocale()
+);
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	<ul>
+		{
+			tags.map(async (tag) => {
+				const tagPosts = await getCollection('posts', ({ data }) =>
+					data.tags.some((tagId) => tagId.id === tag.id)
+				);
+				return (
+					<li>
+						<a
+							href={getLocalePath('/tags/[tag]', {
+								tag: tag.id.split('/')[1],
+							})}
+							class='hover:underline'>
+							{tag.data.title} ({tagPosts.length})
+						</a>
+					</li>
+				);
+			})
+		}
+	</ul>
+</Layout>

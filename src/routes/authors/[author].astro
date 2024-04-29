@@ -1,0 +1,105 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import { getLocalePlaceholder, setDynamicParams, t } from 'i18n:astro';
+import sitemap from 'i18n:astro/sitemap';
+import { collectionFilters } from '@astrolicious/i18n/content-collections';
+import type { GetStaticPaths } from 'astro';
+import Layout from '~/layouts/Layout.astro';
+import { getLocalePath, getLocalesPlaceholder } from 'i18n:astro';
+
+export const getStaticPaths = (async () => {
+	const locale = getLocalePlaceholder();
+	const locales = getLocalesPlaceholder();
+
+	const authors = await getCollection('author', ({ id }) => id);
+
+	return await Promise.all(
+		authors.map(async (a) => {
+			const dynamicParams = locales.map((locale) => {
+				const author = a.id;
+				return {
+					locale,
+					params: {
+						author,
+					},
+				};
+			});
+			sitemap({
+				dynamicParams,
+			});
+
+			return {
+				params: {
+					author: a.id,
+				},
+				props: {
+					author: a,
+					authors,
+					locale,
+					dynamicParams,
+				},
+			};
+		})
+	);
+}) satisfies GetStaticPaths;
+
+const { author, authors, locale, dynamicParams } = Astro.props;
+
+setDynamicParams(dynamicParams);
+const currentAuthor = author.id;
+
+const posts = await getCollection('posts', (post) =>
+	collectionFilters.byLocale(post, { locale })
+);
+
+const filteredPosts = posts.filter(
+	(post) => post.data.author.id === currentAuthor
+);
+
+const title = `${t('author')} - ${author.data.name}`;
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	<ul>
+		{
+			authors.map(async (author) => {
+				const authorPosts = posts.filter(
+					(post) => post.data.author.id === author.id
+				);
+				return (
+					<li>
+						<a
+							href={getLocalePath('/authors/[author]', {
+								author: author.id,
+							})}
+							class={
+								currentAuthor === author.id
+									? 'hover:underline text-red-500 underline dark:text-red-500'
+									: 'hover:underline'
+							}>
+							{author.data.name} ({authorPosts.length})
+						</a>
+					</li>
+				);
+			})
+		}
+		<ul>
+			{
+				filteredPosts.map(async (post) => {
+					return (
+						<li>
+							<a
+								href={getLocalePath('/blog/[slug]', {
+									slug: post.slug.split('/')[1],
+								})}
+								class='hover:underline'>
+								{post.data.title}
+							</a>
+						</li>
+					);
+				})
+			}
+		</ul>
+	</ul>
+</Layout>

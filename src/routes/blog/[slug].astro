@@ -1,0 +1,100 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import {
+	getDefaultLocalePlaceholder,
+	getLocalePlaceholder,
+	setDynamicParams,
+	t,
+} from 'i18n:astro';
+import sitemap from 'i18n:astro/sitemap';
+import {
+	collectionFilters,
+	handleI18nSlug,
+} from '@astrolicious/i18n/content-collections';
+import type { GetStaticPaths } from 'astro';
+import Layout from '~/layouts/Layout.astro';
+import { getLocalePath } from 'i18n:astro';
+
+export const getStaticPaths = (async () => {
+	const locale = getLocalePlaceholder();
+	const defaultLocale = getDefaultLocalePlaceholder();
+
+	const posts = await getCollection('posts', (post) =>
+		collectionFilters.byLocale(post, { locale })
+	);
+
+	return await Promise.all(
+		posts.map(async (post) => {
+			const equivalentPosts = await getCollection('posts', (p) =>
+				collectionFilters.matchingEntries(p, {
+					currentEntry: post,
+					key: 'defaultLocaleVersion',
+					locale,
+					defaultLocale,
+				})
+			);
+			const authorData = await getEntry('author', post.data.author.id);
+			const tagsData = await Promise.all(
+				post.data.tags.map((tag) => getEntry('tags', tag.id))
+			);
+			const dynamicParams = equivalentPosts.map((entry) => {
+				const { locale, slug } = handleI18nSlug(entry.slug);
+
+				return {
+					locale,
+					params: {
+						slug,
+					},
+				};
+			});
+
+			sitemap({
+				dynamicParams,
+			});
+
+			return {
+				params: {
+					slug: handleI18nSlug(post.slug).slug,
+				},
+				props: {
+					post,
+					dynamicParams,
+					authorData,
+					tagsData,
+				},
+			};
+		})
+	);
+}) satisfies GetStaticPaths;
+
+const { post, dynamicParams, authorData, tagsData } = Astro.props;
+const { Content } = await post.render();
+setDynamicParams(dynamicParams);
+
+const title = `${t('blog')} - ${post.data.title}`;
+---
+
+<Layout {title}>
+	<h1>{title}</h1>
+	{t('author')}:
+	<a
+		href={getLocalePath('/authors/[author]', {
+			author: authorData.id,
+		})}>
+		{authorData.data.name}
+	</a>
+	<br />
+	{t('tags')}:
+	{
+		tagsData.map((tagDetail) => (
+			<a
+				href={getLocalePath('/tags/[tag]', {
+					tag: tagDetail.id.split('/')[1],
+				})}>
+				{tagDetail.data.title}
+			</a>
+		))
+	}<article>
+		<Content />
+	</article>
+</Layout>
